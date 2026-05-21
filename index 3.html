@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Diana Fit</title>
+  <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js" crossorigin></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.23.4/babel.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap');
+    *{box-sizing:border-box;margin:0;padding:0;}
+    html,body,#root{height:100%;}
+    body{background:#FBF4EE;color:#2D1B26;font-family:'Outfit',sans-serif;-webkit-font-smoothing:antialiased;overscroll-behavior:none;font-size:16px;}
+    input{background:#fff;color:#18080E;border:1.5px solid #E4D0DA;border-radius:12px;padding:13px 15px;font-family:'Outfit',sans-serif;font-size:16px;outline:none;width:100%;-webkit-appearance:none;}
+    input:focus{border-color:#8B1A4A;box-shadow:0 0 0 3px rgba(139,26,74,0.1);}
+    input::placeholder{color:#A87888;}
+    input[type=number]{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:600;}
+    input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;}
+    button{cursor:pointer;border:none;outline:none;font-family:'Outfit',sans-serif;}
+    ::-webkit-scrollbar{width:3px;}
+    ::-webkit-scrollbar-thumb{background:#E4D0DA;border-radius:2px;}
+    @keyframes blink{0%,100%{opacity:.2}50%{opacity:1}}
+    @keyframes up{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  </style>
+</head>
+<body>
+  <div id="root" style="display:flex;align-items:center;justify-content:center;height:100%;color:#A87888;font-size:14px;letter-spacing:.5px;">laden…</div>
+  <script type="text/babel">
+    const {useState,useEffect,useRef,useMemo}=React;
+
+    // ── TOKENS ─────────────────────────────────────────────────────────────
+    const B="#C95A7B",C="#E68DA6";
+    const T="#2D1B26",T2="#5C3F4F",T3="#9B7E8C";
+    const BR="#F0D9D4",BG="#FBF4EE",WH="#FFFFFF";
+    const DP="Bricolage Grotesque",BD="Hanken Grotesk",MN="JetBrains Mono";
+    const CARD={background:WH,borderRadius:14,border:`1.5px solid ${BR}`};
+    const f=(n,w,s,r,u="kg")=>({name:n,sets:Array.from({length:s||1},()=>({weight:w,reps:r||null,unit:u}))});
+
+    // ── STORAGE ────────────────────────────────────────────────────────────
+    const SK="dfit-v3",GK="dfit-gas",AK="dfit-ak";
+    const gGas=()=>localStorage.getItem(GK)||"";
+    const gAK=()=>localStorage.getItem(AK)||"";
+    const rLS=()=>{try{const d=localStorage.getItem(SK);return d?JSON.parse(d):null;}catch{return null;}};
+    const wLS=a=>{try{localStorage.setItem(SK,JSON.stringify(a));}catch{}};
+    const gGet=async()=>{const u=gGas();if(!u)return null;try{const ctrl=new AbortController();setTimeout(()=>ctrl.abort(),5000);const r=await fetch(u+"?t="+Date.now(),{signal:ctrl.signal});const d=await r.json();return d.ok?d.sessions:null;}catch{return null;}};
+    const gPost=async b=>{const u=gGas();if(!u)return null;try{const r=await fetch(u,{method:"POST",body:JSON.stringify(b)});return await r.json();}catch{return null;}};
+    const fmt=d=>new Date(d).toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"});
+    const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+
+    // ── DATA ───────────────────────────────────────────────────────────────
+    const HIST=[
+      {id:"h20",date:"2026-05-18",type:"upper",label:"Oberkörper",exercises:[f("Lat Pulldown",27.5,3,8),f("Rudern",22.5,3,10),f("Chest Press",15,3,10),f("Shoulder Press",5,3,10),f("Fly",17.5,3,10),f("Trizeps",32.5,3,10),f("Trizeps Pulldown",7.5,3,10),f("Bizeps",17.5,3,10),f("Torso Rotation",32.5,3,10),f("Abdominal",25,3,10)]},
+      {id:"h19",date:"2026-05-13",type:"glute",label:"Glute Pump",exercises:[f("Hip Thrust Elite",10,3,9,"pS"),f("Pendulum Kickback",30,3,10),f("Seated Leg Curl",30,3,10),f("Hip Abduction",57.5,3,9),f("Hip Adduction",57.5,3,9),f("Dual 45° Hip Extension",10,3,10),f("Glute Schlitten",27.5,3,10),f("Hammer V-Squat Waden",30,3,10,"pS"),f("Back Extension",35,3,10),f("Torso Rotation",32.5,3,10),f("Abdominal",25,3,10)]},
+      {id:"h18",date:"2026-05-12",type:"upper",label:"Oberkörper",exercises:[f("Lat Pulldown",27.5,3,8),f("Rudern",22.5,3,10),f("Chest Press",15,3,10),f("Shoulder Press",5,3,10),f("Fly",17.5,3,10),f("Trizeps Pulldown",7.5,3,10),f("Trizeps",32.5,3,10),f("Bizeps",17.5,3,10),f("Torso Rotation",32.5,3,10),f("Abdominal",25,3,10)]},
+      {id:"h17",date:"2026-05-11",type:"glute",label:"Glute Schwer",exercises:[f("Hip Thrust Elite",10,3,9,"pS"),f("Pendulum Kickback",30,3,10),f("Seated Leg Curl",30,3,10),f("Hip Abduction",57.5,3,9),f("Hip Adduction",57.5,3,9),f("Dual 45° Hip Extension",10,3,10),f("Glute Schlitten",27.5,3,10),f("Hammer V-Squat Waden",20,3,10),f("Torso Rotation",32.5,3,10),f("Abdominal",27.5,3,10)]},
+      {id:"h16",date:"2026-05-08",type:"upper",label:"Oberkörper",exercises:[f("Lat Pulldown",27.5,3,8),f("Rudern",22.5,3,10),f("Chest Press",15,3,10),f("Shoulder Press",5,3,10),f("Fly",17.5,3,10),f("Trizeps Pulldown",7.5,3,10),f("Bizeps",17.5,3,10),f("Torso Rotation",32.5,3,10),f("Abdominal",25,3,10)]},
+      {id:"h15",date:"2026-05-07",type:"glute",label:"Glute Pump",exercises:[f("Hip Thrust Elite",10,3,9,"pS"),f("Pendulum Kickback",30,3,10),f("Seated Leg Curl",30,3,10),f("Hip Abduction",57.5,3,9),f("Hip Adduction",57.5,3,9),f("Dual 45° Hip Extension",10,3,10),f("Hammer V-Squat Waden",20,3,10),f("Torso Rotation",32.5,3,10),f("Abdominal",25,3,10)]},
+      {id:"h14",date:"2026-05-05",type:"upper",label:"Oberkörper",exercises:[f("Trizeps Pulldown",7.5,3,10),f("Rudern",3.75,3,10,"pS"),f("Shoulder Press",1.75,3,10,"pS"),f("Seitheben",1.75,3,10,"pS"),f("Fly",1.75,3,10,"pS")]},
+      {id:"h13",date:"2026-05-04",type:"glute",label:"Glute Schwer",exercises:[f("Hip Thrust Elite",10,3,9,"pS"),f("Pendulum Kickback",30,3,10),f("Seated Leg Curl",30,3,10),f("Hip Abduction",57.5,3,10),f("Hip Adduction",57.5,3,10),f("Dual 45° Hip Extension",10,3,10),f("Glute Schlitten",27.5,3,10),f("Torso Rotation",32.5,3,10),f("Abdominal",25,3,10)]},
+      {id:"h12",date:"2026-05-01",type:"upper",label:"Oberkörper",exercises:[f("Lat Pulldown",27.5,3,8),f("Rudern",22.5,3,10),f("Chest Press",15,3,10),f("Shoulder Press",5,3,10),f("Fly",17.5,3,10),f("Seitheben",4,3,10),f("Trizeps",32.5,3,10),f("Trizeps Pulldown",7.5,3,10),f("Bizeps",17.5,3,10),f("Torso Rotation",32.5,3,10),f("Abdominal",25,3,10)]},
+      {id:"h11",date:"2026-04-30",type:"glute",label:"Glute Mittel",exercises:[f("Hip Thrust Elite",10,3,9,"pS"),f("Pendulum Kickback",30,3,10),f("Seated Leg Curl",30,3,10),f("Hip Abduction",57.5,3,10),f("Hip Adduction",57.5,3,10),f("Dual 45° Hip Extension",10,3,10),f("Torso Rotation",32.5,3,10),f("Abdominal",25,3,10)]},
+      {id:"h10",date:"2026-04-29",type:"upper",label:"Oberkörper",exercises:[f("Lat Pulldown",27.5,3,8),f("Rudern",22.5,3,10),f("Chest Press",15,3,10),f("Fly",17.5,3,10),f("Shoulder Press",5,3,10),f("Seitheben",4,3,10),f("Trizeps",32.5,3,10),f("Trizeps Pulldown",7.5,3,10),f("Bizeps",17.5,3,10),f("Torso Rotation",32.5,3,10),f("Abdominal",25,3,10)]},
+      {id:"h09",date:"2026-04-28",type:"glute",label:"Glute Pump",exercises:[f("Hip Thrust Elite",10,3,9,"pS"),f("Pendulum Kickback",30,3,10),f("Hip Abduction",57.5,3,10),f("Hip Adduction",57.5,3,10),f("Seated Leg Curl",30,3,10),f("Hip Extension",10,3,8),f("Torso Rotation",32.5,3,10),f("Abdominal",27.5,3,10)]},
+      {id:"h08",date:"2026-04-22",type:"glute",label:"Glute Pump",exercises:[f("Hip Thrust Elite",10,3,9,"pS"),f("Pendulum Kickback",30,3,10),f("Hip Adduction",57.5,3,10),f("Seated Leg Curl",30,3,10),f("Hip Extension",10,3,8),f("Torso Rotation",32.5,3,10),f("Abdominal",25,3,10)]},
+      {id:"h07",date:"2026-04-21",type:"upper",label:"Oberkörper",exercises:[f("Trizeps",32.5,3,10),f("Shoulder Press",12.5,3,10),f("Lat Pulldown",27.5,3,8),f("Bizeps",20,3,9),f("Rudern",22.5,3,10),f("Fly",17.5,3,8),f("Rear Deltoid",15,3,8),f("Torso Rotation",32.5,3,10),f("Abdominal",25,3,10)]},
+      {id:"h06",date:"2026-04-20",type:"glute",label:"Glute Schwer",exercises:[f("Hip Thrust Elite",10,3,9,"pS"),f("Pendulum Kickback",30,3,10),f("Seated Leg Curl",30,3,10),f("Hip Abduction",57.5,3,8),f("Hip Adduction",57.5,3,10),f("Hip Extension",10,3,8),f("Abdominal",25,3,10),f("Torso Rotation",32.5,3,10)]},
+      {id:"h05",date:"2026-03-25",type:"glute",label:"Glute/Beine",exercises:[f("Hip Thrust Elite",10,3,8,"pS"),f("Pendulum Kickback",30,3,8),f("Seated Leg Curl",30,3,10),f("Hip Abduction",57.5,3,8),f("Back Extension",27.5,3,10),f("Abdominal",22.5,3,10)]},
+      {id:"h04",date:"2026-03-24",type:"upper",label:"Oberkörper",exercises:[f("Chest Press",15,3,10),f("Trizeps",32.5,3,10),f("Trizeps Pulldown",7.5,3,10),f("Abdominal",22.5,3,10),f("Torso Rotation",27.5,3,10)]},
+      {id:"h03",date:"2026-03-23",type:"upper",label:"Oberkörper",exercises:[f("Trizeps",32.5,3,12),f("Bizeps",20,1,null),f("Lat Pulldown",27.5,3,null),f("Rudern",22.5,3,10),f("Shoulder Press",12.5,3,8),f("Rear Deltoid",10,3,10),f("Torso Rotation",22.5,3,10)]},
+      {id:"h02",date:"2026-03-02",type:"glute",label:"Glute/Beine",exercises:[f("Hip Thrust Elite",15,3,6,"pS"),f("Pendulum Kickback",35,3,8),f("Hip Abduction",57.5,3,8),f("Hip Adduction",52.5,3,8),f("Torso Rotation",27.5,3,10)]},
+      {id:"h01",date:"2026-02-25",type:"upper",label:"Oberkörper",exercises:[f("Lat Pulldown",27.5,1,null),f("Rudern",27.5,1,null),f("Chest Press",22.5,1,null),f("Fly",17.5,1,null),f("Abdominal",27.5,1,null),f("Trizeps",27.5,1,null),f("Bizeps",20,1,null)]},
+    ];
+
+    // Exercise sets for filtering
+    const GLUTE_SET=new Set(["Hip Thrust Elite","Pendulum Kickback","Seated Leg Curl","Hip Abduction","Hip Adduction","Hip Extension","Dual 45° Hip Extension","Glute Schlitten","Hammer V-Squat Waden","Back Extension","RDL Kettlebell"]);
+    const UPPER_SET=new Set(["Lat Pulldown","Rudern","Chest Press","Fly","Shoulder Press","Seitheben","Rear Deltoid","Trizeps","Trizeps Pulldown","Bizeps"]);
+
+    // ── PROGRESSION / TYPES ────────────────────────────────────────────────
+    const REC={glute_heavy:["Hip Thrust Elite","Seated Leg Curl","Pendulum Kickback","Back Extension","Hip Abduction","Hip Adduction","Glute Schlitten","Dual 45° Hip Extension","Abdominal","Torso Rotation"],glute_pump:["Hip Thrust Elite","Pendulum Kickback","Hip Abduction","Seated Leg Curl","Dual 45° Hip Extension","Hammer V-Squat Waden","Hip Adduction","Glute Schlitten","Abdominal","Torso Rotation"],glute_med:["Hip Thrust Elite","Pendulum Kickback","Seated Leg Curl","Hip Abduction","Hip Adduction","Dual 45° Hip Extension","Back Extension","Abdominal","Torso Rotation"],upper:["Lat Pulldown","Rudern","Chest Press","Shoulder Press","Fly","Rear Deltoid","Seitheben","Trizeps","Trizeps Pulldown","Bizeps","Abdominal","Torso Rotation"]};
+    const GLUTE_EX=["Hip Thrust Elite","Pendulum Kickback","Seated Leg Curl","Hip Abduction","Hip Adduction","Hip Extension","Dual 45° Hip Extension","Glute Schlitten","Hammer V-Squat Waden","Back Extension","Torso Rotation","Abdominal","Cable Woodchopper","RDL Kettlebell"];
+    const UPPER_EX=["Lat Pulldown","Rudern","Chest Press","Fly","Shoulder Press","Seitheben","Rear Deltoid","Trizeps","Trizeps Pulldown","Bizeps","Torso Rotation","Abdominal","Cable Woodchopper"];
+    const OTHER_EX=["Pilates","Yoga","Laufen","Schwimmen","Radfahren","HIIT","Stretching / Mobility","Tanzen","Kraft-Kurs","Bouldern","Tennis","Spaziergang","Sonstiges"];
+    const TYPES=[
+      {id:"glute_heavy",label:"Glute Schwer",  sub:"6–10 Wdh · 90s+ · Aufbau",         dot:B,    exList:GLUTE_EX},
+      {id:"glute_pump", label:"Glute Pump",    sub:"12–20 Wdh · 45s · Brennen",         dot:C,    exList:GLUTE_EX},
+      {id:"glute_med",  label:"Glute Mittel",  sub:"8–12 Wdh · 75s · Solider Reiz",     dot:"#A04060",exList:GLUTE_EX},
+      {id:"upper",      label:"Oberkörper",    sub:"Rücken · Brust · Schultern · Arme", dot:B,    exList:UPPER_EX},
+      {id:"other",      label:"Kurs & Co",     sub:"Pilates · Yoga · Laufen · Sonstiges",dot:"#5A6A90",exList:OTHER_EX},
+    ];
+    const REP_R={glute_heavy:[6,10],glute_pump:[12,20],glute_med:[8,12],upper:[8,12]};
+    const DEF_R={glute_heavy:8,glute_pump:15,glute_med:10,upper:10};
+    const DEF_S={glute_heavy:4,glute_pump:3,glute_med:3,upper:3};
+    const INC=2.5;
+    const getTI=t=>TYPES.find(x=>x.id===t)||(t?.includes("glute")?TYPES[0]:TYPES[3]);
+
+    const getPI=(name,type,all)=>{
+      const h=all.filter(s=>s.exercises?.some(e=>e.name===name)).slice(0,4);
+      if(!h.length)return{weight:0,unit:"kg",sets:DEF_S[type]||3,reps:DEF_R[type]||10,tag:"neu",tc:T3,reason:"Noch keine Daten"};
+      const lx=h[0].exercises.find(e=>e.name===name);
+      const w=lx.sets[0].weight,r=lx.sets[0].reps,s=lx.sets.length,u=lx.sets[0].unit;
+      const [rMin,rMax]=REP_R[type]||[8,12];
+      if(r&&r<rMin)return{weight:Math.max(w-INC,INC),unit:u,sets:s,reps:DEF_R[type]||10,tag:"↓ leichter",tc:"#A04020",reason:`${r} Wdh — Ziel ${rMin}–${rMax}, evtl. ${INC} kg runter`};
+      if(h.length>=2){const px=h[1].exercises.find(e=>e.name===name);if(px&&r>=rMax&&(px.sets[0].reps||0)>=rMax&&w===px.sets[0].weight)return{weight:w+INC,unit:u,sets:s,reps:rMin,tag:`↑ +${INC} ${u==="pS"?"pS":"kg"}`,tc:"#1A6B28",reason:`${r} Wdh × 2 Sessions — Gewicht erhöhen!`};}
+      if(r&&r>=rMax)return{weight:w,unit:u,sets:s,reps:r,tag:"↑ bald",tc:C,reason:`${r} Wdh — nochmal, dann +${INC} kg`};
+      return{weight:w,unit:u,sets:s,reps:r||DEF_R[type]||10,tag:"= halten",tc:T3,reason:r?`${r} Wdh — Ziel: ${rMin}–${rMax}`:"Selbes Gewicht"};
+    };
+    const buildTpl=(type,all)=>{
+      const base=REC[type]||[];
+      const last=all.find(s=>type==="upper"?s.type==="upper":["glute","glute_heavy","glute_pump","glute_med"].includes(s.type)||s.type?.includes("glute"));
+      const extras=(last?.exercises||[]).map(e=>e.name).filter(n=>!base.includes(n));
+      return[...base,...extras].map(name=>{const p=getPI(name,type,all);return{name,sets:Array.from({length:p.sets||3},()=>({weight:p.weight||0,unit:p.unit||"kg",reps:p.reps||null})),prog:{tag:p.tag,tc:p.tc,reason:p.reason}};});
+    };
+
+    const SYS=`Du bist Dianas persönlicher Fitness & Nutrition Coach. Kurz, direkt, kein Fluff. Kein AI-Sprech, keine Em-Dashes. Denglish ist fine.
+DIANA: Trainiert 5x/Woche, Meniskusriss (kein tiefes Kniebeugen, keine Ausfallschritte, keine Sprünge). Ziel: mehr Po, strafferer Look.
+SYSTEM: Glute Schwer 6-10 Wdh, Pump 12-20, Mittel 8-12. Double Progression: Wdh steigern bis oberer Range ×2 Sessions, dann +2.5kg.
+ERNÄHRUNG: Joghurt/Frischkäse morgens, Ofengemüse+Tofu/Linsen. Ziel 25-35g Protein/Mahlzeit. Aufgebläht = Wasser (Glykogen+Salz+Alkohol), kein Fett.`;
+
+    // ── APP ────────────────────────────────────────────────────────────────
+    function App(){
+      const [tab,setTab]=useState("log");
+      const [sessions,setSessions]=useState([]);
+      const [loaded,setLoaded]=useState(false);
+      const [active,setActive]=useState(null);
+      const [sync,setSync]=useState("idle");
+      const [cfg,setCfg]=useState(false);
+
+      useEffect(()=>{(async()=>{
+        setSync("syncing");
+        const ls=rLS()||[];
+        const gs=await gGet()||[];
+
+        // SAFE MERGE: never lose local data
+        // Union of both sources, GAS wins on ID conflict, sort newest first
+        const gsMap=new Map(gs.map(s=>[s.id,s]));
+        const lsMap=new Map(ls.map(s=>[s.id,s]));
+        const merged=[...new Map([...lsMap,...gsMap]).values()]
+          .sort((a,b)=>new Date(b.date)-new Date(a.date));
+        const final=merged.length?merged:HIST;
+
+        setSessions(final);
+        wLS(final);
+        setSync(gGas()?"ok":"idle");
+        setLoaded(true);
+
+        // Push any localStorage-only sessions to GAS (unsynced sessions)
+        if(gGas()&&ls.length){
+          const unsynced=ls.filter(s=>!gsMap.has(s.id));
+          if(unsynced.length){
+            // Init GAS with full merged set so it's complete
+            gPost({action:"init",sessions:final}).then(r=>setSync(r?.ok?"ok":"error"));
+          }
+        } else if(gGas()&&!gs.length&&final.length){
+          gPost({action:"init",sessions:final}).then(r=>setSync(r?.ok?"ok":"error"));
+        }
+      })();},[]);
+
+      const save=async s=>{const a=[s,...sessions];setSessions(a);wLS(a);setSync("syncing");const r=await gPost({action:"save",session:s});setSync(r?.ok?"ok":"error");setActive(null);setTab("history");};
+      const del=async id=>{const a=sessions.filter(s=>s.id!==id);setSessions(a);wLS(a);setSync("syncing");const r=await gPost({action:"delete",id});setSync(r?.ok?"ok":"error");};
+
+      if(!loaded)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100%",color:T3,fontSize:14}}>laden…</div>;
+      return(
+        <div style={{maxWidth:430,margin:"0 auto",background:BG,minHeight:"100vh",position:"relative"}}>
+          <div style={{height:2,background:`linear-gradient(90deg,${B},${C},#E090B0,${C},${B})`}}/>
+          <div style={{display:"flex",justifyContent:"flex-end",padding:"10px 16px 0",gap:10,alignItems:"center"}}>
+            <Dot s={sync}/>
+            <button onClick={()=>setCfg(true)} style={{background:"none",color:T3,fontSize:18,lineHeight:1}}>⚙</button>
+          </div>
+          {tab!=="coach"&&<div style={{paddingBottom:88}}>
+            {tab==="log"&&<LogTab sessions={sessions} active={active} setActive={setActive} save={save}/>}
+            {tab==="history"&&<HistoryTab sessions={sessions} del={del}/>}
+          </div>}
+          {false&&<div style={{height:"calc(100vh - 118px)",display:"flex",flexDirection:"column",overflow:"hidden"}}><CoachTab/></div>}
+          <Nav tab={tab} setTab={setTab}/>
+          {cfg&&<Settings onClose={r=>{setCfg(false);if(r)window.location.reload();}}/>}
+        </div>
+      );
+    }
+
+    const Dot=({s})=>{const c={idle:"#C8A8B8",syncing:"#D4A820",ok:"#2A8040",error:"#C03030"};return <div style={{width:8,height:8,borderRadius:"50%",background:c[s]||c.idle,animation:s==="syncing"?"pulse 1s infinite":""}} title={{ok:"Gespeichert",syncing:"Syncing",error:"Fehler",idle:"Offline"}[s]}/>;};
+
+    // ── LOG TAB ────────────────────────────────────────────────────────────
+    function LogTab({sessions,active,setActive,save}){
+      const [editing,setEditing]=useState(null);
+      const [picking,setPicking]=useState(false);
+
+      const start=id=>setActive({type:id,date:new Date().toISOString().slice(0,10),exercises:buildTpl(id,sessions),label:getTI(id).label});
+      const upd=(i,ex)=>{setActive(a=>{const e=[...a.exercises];e[i]={...ex,prog:a.exercises[i]?.prog};return{...a,exercises:e};});setEditing(null);};
+      const rm=i=>setActive(a=>({...a,exercises:a.exercises.filter((_,j)=>j!==i)}));
+      const add=name=>{const p=getPI(name,active.type,sessions);setActive(a=>({...a,exercises:[...a.exercises,{name,sets:Array.from({length:p.sets||3},()=>({weight:p.weight||0,unit:p.unit||"kg",reps:p.reps||null})),prog:{tag:p.tag,tc:p.tc,reason:p.reason}}]}));setPicking(false);};
+
+      if(active){
+        const ti=getTI(active.type);
+        return(
+          <div style={{position:"fixed",inset:0,background:BG,zIndex:30,overflowY:"auto"}}>
+            <div style={{padding:"14px 16px 12px",background:BG,borderBottom:"1px solid "+BR,position:"sticky",top:0,zIndex:10}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+                <button onClick={()=>setActive(null)} style={{background:WH,color:T3,padding:"7px 14px",borderRadius:20,fontSize:13,fontWeight:600,border:"1.5px solid "+BR}}>← Zurück</button>
+                {active.exercises.length>0&&<button onClick={()=>save({...active,id:uid()})} style={{background:"linear-gradient(135deg,"+B+","+C+")",color:WH,padding:"8px 18px",borderRadius:99,fontSize:13,fontWeight:700}}>Speichern ✦</button>}
+              </div>
+              <div style={{display:"flex",alignItems:"baseline",gap:10,flexWrap:"wrap"}}>
+                <div style={{fontSize:22,fontWeight:800,color:B,lineHeight:1}}>{ti.label}</div>
+                <input type="date" value={active.date}
+                  onChange={e=>setActive(a=>({...a,date:e.target.value}))}
+                  style={{fontSize:13,fontWeight:600,color:T2,background:"none",border:"none",borderBottom:"1.5px solid "+BR,borderRadius:0,padding:"2px 4px",boxShadow:"none",width:"auto",outline:"none"}}
+                />
+              </div>
+              <div style={{fontSize:12,color:T3,marginTop:3,fontWeight:500}}>{ti.sub}</div>
+            </div>
+            <div style={{padding:"12px 16px 120px"}}>
+
+            {active.exercises.length===0&&<div style={{color:T3,fontSize:14,textAlign:"center",padding:"28px 0"}}>Noch keine Übungen</div>}
+            {active.exercises.map((ex,i)=>(
+              <div key={i} onClick={()=>setEditing(i)} style={{animation:"up .18s ease",...CARD,padding:"12px 14px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"flex-start",cursor:"pointer"}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:4,flexWrap:"wrap"}}>
+                    <span style={{fontSize:15,fontWeight:700,color:T}}>{ex.name}</span>
+                    {ex.prog?.tag&&<span style={{fontSize:11,fontWeight:700,color:ex.prog.tc,background:ex.prog.tc+"15",padding:"2px 8px",borderRadius:12,border:`1px solid ${ex.prog.tc}40`}}>{ex.prog.tag}</span>}
+                  </div>
+                  <div style={{fontFamily:"'JetBrains Mono'",fontSize:14,fontWeight:600,color:ex.sets[0].weight>0?B:T3}}>
+                    {ex.sets[0].weight>0
+                      ?(ex.sets[0].unit==="min"
+                          ?`${ex.sets[0].weight} min`
+                          :`${ex.sets[0].weight}${ex.sets[0].unit==="pS"?" pS":""} kg  ×${ex.sets.length}  ×${ex.sets[0].reps||"—"}`)
+                      :"— antippen"}
+                  </div>
+                  {ex.prog?.reason&&<div style={{fontSize:12,color:T3,marginTop:2}}>{ex.prog.reason}</div>}
+                </div>
+                <button onClick={e=>{e.stopPropagation();rm(i);}} style={{background:"none",color:"#C0A0A8",fontSize:22,padding:"0 0 0 10px",lineHeight:1}}>×</button>
+              </div>
+            ))}
+
+            <button onClick={()=>setPicking(true)} style={{width:"100%",padding:14,background:WH,color:T2,borderRadius:12,fontSize:15,fontWeight:600,border:`1.5px dashed ${BR}`,marginTop:4,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+              <span style={{color:C,fontSize:20,lineHeight:1}}>+</span> Übung hinzufügen
+            </button>
+            {active.exercises.length>0&&<button onClick={()=>save({...active,id:uid()})} style={{width:"100%",padding:15,background:`linear-gradient(135deg,${B},${C})`,color:WH,borderRadius:12,fontSize:16,fontWeight:700,marginTop:10,boxShadow:`0 6px 20px ${B}45`}}>Session speichern →</button>}
+
+            </div>
+            {editing!==null&&<ExMod name={active.exercises[editing].name} pi={getPI(active.exercises[editing].name,active.type,sessions)} cur={active.exercises[editing].sets[0]} curS={active.exercises[editing].sets.length} onSave={ex=>upd(editing,ex)} onClose={()=>setEditing(null)}/>}
+            {picking&&<ExPick ti={ti} sessions={sessions} type={active.type} onPick={add} onClose={()=>setPicking(false)}/>}
+          </div>
+        );
+      }
+
+      return(
+        <div style={{padding:"52px 20px 0"}}>
+          <div style={{marginBottom:10}}>
+            <h1 style={{fontFamily:DP,fontSize:46,lineHeight:.9,fontWeight:800,color:T,letterSpacing:-2,marginBottom:4}}>let's<br/><span style={{color:B}}>get strong.</span></h1>
+            <div style={{fontSize:14,color:T2,marginTop:5,fontWeight:500}}>{new Date().toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long"})}</div>
+          </div>
+          <Label>Session Typ</Label>
+          {TYPES.map(t=>(
+            <button key={t.id} onClick={()=>start(t.id)} style={{width:"100%",padding:"14px 16px",...CARD,display:"flex",alignItems:"center",marginBottom:8,textAlign:"left",gap:14}}>
+              <div style={{width:4,height:42,borderRadius:3,background:t.dot,flexShrink:0}}/>
+              <div style={{flex:1}}>
+                <div style={{fontSize:16,fontWeight:700,color:T,marginBottom:2}}>{t.label}</div>
+                <div style={{fontSize:13,color:T3,fontWeight:500}}>{t.sub}</div>
+              </div>
+              <span style={{color:T3,fontSize:16}}>›</span>
+            </button>
+          ))}
+          <Label mt={22}>Letzte Sessions</Label>
+          {sessions.slice(0,5).map(s=>{const ti=getTI(s.type);return(
+            <div key={s.id} style={{padding:"13px 14px",...CARD,marginBottom:7,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div><div style={{fontSize:15,color:T,fontWeight:700}}>{s.label||ti?.label}</div><div style={{fontSize:13,color:T3,marginTop:2}}>{s.exercises?.length||0} Übungen</div></div>
+              <div style={{fontFamily:"'JetBrains Mono'",fontSize:13,color:T2,fontWeight:600}}>{fmt(s.date)}</div>
+            </div>
+          );})}
+        </div>
+      );
+    }
+
+    // ── EXERCISE PICKER ────────────────────────────────────────────────────
+    function ExPick({ti,sessions,type,onPick,onClose}){
+      const [q,setQ]=useState("");
+      return(
+        <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(24,8,14,0.5)",zIndex:100,display:"flex",flexDirection:"column",backdropFilter:"blur(4px)"}}>
+          <div style={{flex:1}}/>
+          <div onClick={e=>e.stopPropagation()} style={{background:BG,borderRadius:"20px 20px 0 0",maxHeight:"76vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:`0 -6px 30px rgba(139,26,74,0.2)`}}>
+            <div style={{padding:"16px 16px 12px",borderBottom:`1.5px solid ${BR}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{fontSize:18,fontWeight:800,color:T}}>Übung hinzufügen</div>
+              <button onClick={onClose} style={{background:"none",color:T3,fontSize:24,lineHeight:1}}>×</button>
+            </div>
+            <div style={{overflowY:"auto",padding:"12px 14px 28px"}}>
+              <div style={{display:"flex",gap:8,marginBottom:12}}>
+                <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Eigene Übung…" onClick={e=>e.stopPropagation()}/>
+                {q.trim()&&<button onClick={()=>onPick(q.trim())} style={{background:B,color:WH,borderRadius:10,padding:"0 18px",fontWeight:700,whiteSpace:"nowrap",fontSize:15}}>OK</button>}
+              </div>
+              {ti.exList.map(name=>{const p=getPI(name,type,sessions);return(
+                <button key={name} onClick={()=>onPick(name)} style={{width:"100%",padding:"12px 14px",...CARD,marginBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center",textAlign:"left"}}>
+                  <span style={{fontSize:15,color:T,fontWeight:600}}>{name}</span>
+                  <div style={{display:"flex",alignItems:"center",gap:7,flexShrink:0}}>
+                    {p.tag&&<span style={{fontSize:11,fontWeight:700,color:p.tc,background:p.tc+"15",padding:"2px 7px",borderRadius:12,border:`1px solid ${p.tc}40`}}>{p.tag}</span>}
+                    {p.weight>0&&<span style={{fontFamily:"'JetBrains Mono'",fontSize:13,color:T2,fontWeight:600}}>{p.weight}{p.unit==="pS"?"pS":""}</span>}
+                  </div>
+                </button>
+              );})}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ── EXERCISE MODAL ─────────────────────────────────────────────────────
+    function ExMod({name,pi,cur,curS,onSave,onClose}){
+      const [w,setW]=useState((cur?.weight||pi.weight||0).toString());
+      const [r,setR]=useState((cur?.reps||pi.reps||"").toString());
+      const [s,setS]=useState((curS||pi.sets||3).toString());
+      const [u,setU]=useState(cur?.unit||pi.unit||"kg");
+      const ok=w&&parseFloat(w)>0;
+      return(
+        <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(24,8,14,0.55)",zIndex:110,display:"flex",flexDirection:"column",backdropFilter:"blur(4px)"}}>
+          <div style={{flex:1}}/>
+          <div onClick={e=>e.stopPropagation()} style={{background:WH,borderRadius:"20px 20px 0 0",padding:"22px 18px 42px",boxShadow:`0 -6px 30px rgba(139,26,74,0.2)`}}>
+            <div style={{fontSize:20,fontWeight:800,color:T,marginBottom:8}}>{name}</div>
+            {pi.tag&&<div style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:16,padding:"10px 12px",background:pi.tc+"10",borderRadius:10,border:`1px solid ${pi.tc}30`}}>
+              <span style={{fontSize:13,fontWeight:700,color:pi.tc,whiteSpace:"nowrap"}}>{pi.tag}</span>
+              {pi.reason&&<span style={{fontSize:13,color:T2,lineHeight:1.4}}>{pi.reason}</span>}
+            </div>}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 86px",gap:10,marginBottom:10}}>
+              <div><Lbl>Gewicht</Lbl><input type="number" step="0.5" value={w} onChange={e=>setW(e.target.value)} placeholder="0"/></div>
+              <div><Lbl>Unit</Lbl>
+                <button onClick={()=>setU(x=>x==="kg"?"pS":x==="pS"?"min":"kg")} style={{width:"100%",height:50,background:u==="min"?"#F0F4FA":u==="pS"?"#FBF0F4":WH,color:u==="min"?"#5A6A90":u==="pS"?B:T3,border:"1.5px solid "+(u==="min"?"#5A6A90":u==="pS"?B:BR),borderRadius:12,fontFamily:"'JetBrains Mono'",fontSize:14,fontWeight:700}}>{u}</button>
+              </div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:22}}>
+              <div><Lbl>Sätze</Lbl><input type="number" step="1" min="1" value={s} onChange={e=>setS(e.target.value)} placeholder="3"/></div>
+              <div><Lbl>Wiederholungen</Lbl><input type="number" step="1" min="1" value={r} onChange={e=>setR(e.target.value)} placeholder="10"/></div>
+            </div>
+            <button disabled={!ok} onClick={()=>onSave({name,sets:Array.from({length:parseInt(s)||1},()=>({weight:parseFloat(w),unit:u,reps:parseInt(r)||null}))})} style={{width:"100%",padding:15,background:ok?`linear-gradient(135deg,${B},${C})`:"#EDD8E4",color:ok?WH:"#B09098",borderRadius:12,fontSize:16,fontWeight:700,boxShadow:ok?`0 6px 20px ${B}45`:"none"}}>
+              {cur?"Aktualisieren":"Hinzufügen"}
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // ── HISTORY TAB ────────────────────────────────────────────────────────
+    function HistoryTab({sessions,del}){
+      const [filter,setFilter]=useState("all"); // all | glute | upper
+      const [open,setOpen]=useState(null);
+      const [confDel,setConfDel]=useState(null);
+      const [showAll,setShowAll]=useState(false);
+
+      // Filter sessions
+      const filtered=useMemo(()=>{
+        if(filter==="glute")return sessions.filter(s=>s.type?.includes("glute")||s.type==="glute");
+        if(filter==="upper")return sessions.filter(s=>s.type==="upper");
+        return sessions;
+      },[sessions,filter]);
+
+      const now=new Date();
+      const week=filtered.filter(s=>(now-new Date(s.date))/(86400000)<7).length;
+      const month=filtered.filter(s=>{const d=new Date(s.date);return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();}).length;
+
+      // Top exercises for progression (per filter)
+      const topExercises=useMemo(()=>{
+        const exerciseSet=filter==="glute"?GLUTE_SET:filter==="upper"?UPPER_SET:null;
+        if(filter==="all"){
+          // Show balanced mix: top 3 glute + top 3 upper
+          const gFreq={},uFreq={};
+          sessions.forEach(s=>s.exercises?.forEach(e=>{
+            if(GLUTE_SET.has(e.name))gFreq[e.name]=(gFreq[e.name]||0)+1;
+            if(UPPER_SET.has(e.name))uFreq[e.name]=(uFreq[e.name]||0)+1;
+          }));
+          const topG=Object.entries(gFreq).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([n])=>n);
+          const topU=Object.entries(uFreq).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([n])=>n);
+          return [...topG,...topU];
+        }
+        const freq={};
+        filtered.forEach(s=>s.exercises?.forEach(e=>{
+          if(!exerciseSet||exerciseSet.has(e.name))freq[e.name]=(freq[e.name]||0)+1;
+        }));
+        return Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([n])=>n);
+      },[sessions,filtered,filter]);
+
+      const visible=showAll?filtered:filtered.slice(0,8);
+
+      return(
+        <div style={{padding:"18px 16px 0"}}>
+          <div style={{fontSize:32,fontWeight:800,color:B,marginBottom:18}}>Verlauf</div>
+
+          {/* Filter pills */}
+          <div style={{display:"flex",gap:8,marginBottom:22}}>
+            {[{k:"all",l:"Alle"},{k:"glute",l:"Glute"},{k:"upper",l:"Oberkörper"}].map(({k,l})=>(
+              <button key={k} onClick={()=>setFilter(k)} style={{padding:"8px 16px",borderRadius:20,fontSize:14,fontWeight:600,background:filter===k?B:WH,color:filter===k?WH:T3,border:`1.5px solid ${filter===k?B:BR}`,transition:"all .15s"}}>
+                {l}
+              </button>
+            ))}
+          </div>
+
+          {/* Stats */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:22}}>
+            {[{v:filtered.length,l:"Gesamt"},{v:month,l:"Dieser Monat"},{v:week,l:"Diese Woche"}].map(({v,l})=>(
+              <div key={l} style={{...CARD,padding:"12px 8px",textAlign:"center"}}>
+                <div style={{fontSize:30,fontWeight:800,color:B,lineHeight:1}}>{v}</div>
+                <div style={{fontSize:11,color:T3,marginTop:4,fontWeight:600,letterSpacing:.3}}>{l}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Frequency grid - always shows all sessions */}
+          <Label>30 Tage</Label>
+          <div style={{...CARD,padding:"14px 13px",marginBottom:22}}>
+            <FreqGrid sessions={sessions} filter={filter}/>
+          </div>
+
+          {/* Progression */}
+          <Label>Progression</Label>
+          {topExercises.map(name=>{
+            const hist=sessions.filter(s=>s.exercises?.some(e=>e.name===name)).map(s=>{const ex=s.exercises.find(e=>e.name===name);return{date:s.date,weight:ex.sets[0].weight,unit:ex.sets[0].unit};}).reverse().slice(-10);
+            if(hist.length<2)return null;
+            const latest=hist[hist.length-1];
+            const delta=+(latest.weight-hist[0].weight).toFixed(1);
+            const isGlute=GLUTE_SET.has(name);
+            return(
+              <div key={name} style={{...CARD,padding:"13px 14px",marginBottom:8,display:"flex",alignItems:"center",gap:12}}>
+                <div style={{width:3,height:36,borderRadius:2,background:isGlute?B:C,flexShrink:0}}/>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:14,fontWeight:700,color:T,marginBottom:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{name}</div>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{fontFamily:"'JetBrains Mono'",fontSize:15,fontWeight:700,color:B}}>{latest.weight}{latest.unit==="pS"?" pS":""} kg</span>
+                    {delta!==0&&<span style={{fontSize:12,fontWeight:700,color:delta>0?"#1A6828":"#A04020",background:delta>0?"#E8F4E8":"#FAE8E0",padding:"2px 8px",borderRadius:10}}>{delta>0?"+":""}{delta} kg</span>}
+                    {delta===0&&<span style={{fontSize:12,color:T3,fontWeight:500}}>stabil</span>}
+                  </div>
+                </div>
+                <Spark data={hist} color={isGlute?B:C}/>
+              </div>
+            );
+          })}
+
+          {/* Session list */}
+          <Label mt={22}>Sessions</Label>
+          {visible.map(s=>{const ti=getTI(s.type);const isOpen=open===s.id;return(
+            <div key={s.id} style={{marginBottom:7,...CARD,overflow:"hidden"}}>
+              <button onClick={()=>setOpen(isOpen?null:s.id)} style={{width:"100%",padding:"13px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",background:"none",color:T,textAlign:"left"}}>
+                <div style={{display:"flex",gap:12,alignItems:"center"}}>
+                  <div style={{width:3,height:36,borderRadius:2,background:ti?.dot||B,flexShrink:0}}/>
+                  <div>
+                    <div style={{fontSize:15,fontWeight:700,color:T}}>{s.label||ti?.label||s.type}</div>
+                    <div style={{fontSize:13,color:T3,marginTop:2}}>{s.exercises?.length||0} Übungen</div>
+                  </div>
+                </div>
+                <div style={{textAlign:"right",flexShrink:0}}>
+                  <div style={{fontFamily:"'JetBrains Mono'",fontSize:13,color:T2,fontWeight:600}}>{fmt(s.date)}</div>
+                  <div style={{fontSize:12,color:T3,marginTop:2}}>{isOpen?"↑":"↓"}</div>
+                </div>
+              </button>
+              {isOpen&&<div style={{borderTop:`1.5px solid ${BR}`,padding:"4px 14px 12px"}}>
+                {s.exercises?.map((ex,i)=>(
+                  <div key={i} style={{padding:"8px 0",borderBottom:"1px solid #F0E0E8",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <div style={{fontSize:14,color:T,fontWeight:600}}>{ex.name}</div>
+                    <div style={{fontFamily:"'JetBrains Mono'",fontSize:13,color:B,fontWeight:600}}>
+                      {ex.sets?.[0]?.unit==="min"
+                        ?`${ex.sets?.[0]?.weight} min`
+                        :`${ex.sets?.[0]?.weight}${ex.sets?.[0]?.unit==="pS"?" pS":""} ×${ex.sets?.length} ×${ex.sets?.[0]?.reps||"—"}`}
+                    </div>
+                  </div>
+                ))}
+                <div style={{marginTop:12,paddingTop:10,borderTop:"1px solid #F0E0E8"}}>
+                  {confDel===s.id
+                    ?<div style={{display:"flex",gap:8,alignItems:"center"}}>
+                        <span style={{fontSize:13,color:T2,flex:1}}>Wirklich löschen?</span>
+                        <button onClick={()=>{del(s.id);setConfDel(null);setOpen(null);}} style={{background:"#A03020",color:WH,borderRadius:8,padding:"7px 16px",fontSize:13,fontWeight:700}}>Ja</button>
+                        <button onClick={()=>setConfDel(null)} style={{background:"#EDD8E4",color:T2,borderRadius:8,padding:"7px 16px",fontSize:13,fontWeight:600}}>Nein</button>
+                      </div>
+                    :<button onClick={()=>setConfDel(s.id)} style={{background:"none",color:T3,fontSize:13,textDecoration:"underline",textUnderlineOffset:3,fontWeight:500}}>Session löschen</button>
+                  }
+                </div>
+              </div>}
+            </div>
+          );})}
+          {filtered.length>8&&<button onClick={()=>setShowAll(x=>!x)} style={{width:"100%",padding:13,background:WH,color:T2,borderRadius:12,fontSize:14,fontWeight:600,border:`1.5px solid ${BR}`,marginTop:4}}>
+            {showAll?"Weniger anzeigen":  `Alle ${filtered.length} anzeigen`}
+          </button>}
+          <div style={{height:16}}/>
+        </div>
+      );
+    }
+
+    // ── VISUALIZATIONS ─────────────────────────────────────────────────────
+    function Spark({data,color,W=88,H=34}){
+      if(!data||data.length<2)return <div style={{width:W,height:H}}/>;
+      const vs=data.map(d=>d.weight);
+      const mn=Math.min(...vs),mx=Math.max(...vs),rng=mx-mn||.1;
+      const p=3;
+      const pts=vs.map((v,i)=>[p+(i/(vs.length-1))*(W-2*p),H-p-((v-mn)/rng)*(H-2*p)]);
+      const path=pts.map((pt,i)=>{
+        if(i===0)return `M${pt[0].toFixed(1)},${pt[1].toFixed(1)}`;
+        const pv=pts[i-1],cx=(pv[0]+pt[0])/2;
+        return `C${cx.toFixed(1)},${pv[1].toFixed(1)} ${cx.toFixed(1)},${pt[1].toFixed(1)} ${pt[0].toFixed(1)},${pt[1].toFixed(1)}`;
+      }).join(" ");
+      const last=pts[pts.length-1];
+      return(
+        <svg width={W} height={H} style={{overflow:"visible",flexShrink:0}}>
+          <defs><linearGradient id={`g${color.replace("#","")}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity=".18"/><stop offset="100%" stopColor={color} stopOpacity="0"/></linearGradient></defs>
+          <path d={`${path} L${last[0]},${H} L${pts[0][0]},${H} Z`} fill={`url(#g${color.replace("#","")})`}/>
+          <path d={path} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round"/>
+          <circle cx={last[0]} cy={last[1]} r="3.5" fill={color}/>
+        </svg>
+      );
+    }
+
+    function FreqGrid({sessions,filter}){
+      const dm={};
+      sessions.forEach(s=>{dm[s.date]=s.type;});
+      const days=Array.from({length:30},(_,i)=>{
+        const d=new Date();d.setDate(d.getDate()-(29-i));
+        const str=d.toISOString().slice(0,10);
+        const t=dm[str]||null;
+        const isGlute=t?.includes("glute")||t==="glute";
+        const isUpper=t==="upper";
+        const highlighted=filter==="all"||(filter==="glute"&&isGlute)||(filter==="upper"&&isUpper);
+        return{str,t,isGlute,isUpper,highlighted,day:d.getDate(),month:d.getMonth()};
+      });
+      return(
+        <div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(10,1fr)",gap:5}}>
+            {days.map((d,i)=>{
+              const bg=d.t?(d.isGlute?B:C):BR;
+              const op=d.t?(d.highlighted?1:.25):.2;
+              return(
+                <div key={i} title={`${d.str}${d.t?" · "+d.t:""}`} style={{aspectRatio:"1",borderRadius:6,background:bg,opacity:op,boxShadow:d.t&&d.highlighted?`0 1px 5px ${bg}50`:"none",position:"relative"}}>
+                  {d.day===1&&<div style={{position:"absolute",bottom:-13,left:"50%",transform:"translateX(-50%)",fontSize:9,color:T3,whiteSpace:"nowrap",fontWeight:600}}>{new Date(d.str).toLocaleDateString("de-DE",{month:"short"})}</div>}
+                </div>
+              );
+            })}
+          </div>
+          <div style={{display:"flex",gap:12,marginTop:18,alignItems:"center",flexWrap:"wrap"}}>
+            {[{c:B,l:"Glute"},{c:C,l:"Oberkörper"},{c:BR,op:.4,l:"Pause"}].map(({c,l,op=1})=>(
+              <div key={l} style={{display:"flex",alignItems:"center",gap:5}}>
+                <div style={{width:10,height:10,borderRadius:3,background:c,opacity:op}}/>
+                <span style={{fontSize:12,color:T2,fontWeight:500}}>{l}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // ── COACH ──────────────────────────────────────────────────────────────
+    function CoachTab(){return null;}
+    
+    function Settings({onClose}){
+      const [gas,setGas]=useState(gGas());
+      const exportData=()=>{
+        const d=rLS();
+        if(!d||!d.length){alert("Keine lokalen Daten gefunden.");return;}
+        const blob=new Blob([JSON.stringify(d,null,2)],{type:"application/json"});
+        const url=URL.createObjectURL(blob);
+        const a=document.createElement("a");
+        a.href=url;a.download="dianafit-backup-"+new Date().toISOString().slice(0,10)+".json";
+        a.click();URL.revokeObjectURL(url);
+      };
+      return(
+        <div style={{position:"fixed",inset:0,background:"rgba(24,8,14,0.55)",zIndex:200,display:"flex",flexDirection:"column",backdropFilter:"blur(4px)"}}>
+          <div style={{flex:1}} onClick={()=>onClose(false)}/>
+          <div style={{background:WH,borderRadius:"20px 20px 0 0",padding:"24px 18px 44px",boxShadow:"0 -6px 30px rgba(139,26,74,.2)"}}>
+            <div style={{fontSize:24,fontWeight:800,color:T,marginBottom:4}}>Einstellungen</div>
+            <div style={{fontSize:14,color:T3,marginBottom:22}}>Einmalig eingeben — danach automatisch</div>
+            <div style={{marginBottom:16}}>
+              <div style={{fontSize:11,color:T3,letterSpacing:1.2,marginBottom:6,fontWeight:700}}>GOOGLE APPS SCRIPT URL</div>
+              <input value={gas} onChange={e=>setGas(e.target.value)} placeholder="https://script.google.com/macros/s/…"/>
+              <div style={{fontSize:12,color:T3,marginTop:4}}>Aus dem GAS-Deployment kopieren</div>
+            </div>
+            <div style={{marginBottom:22,padding:"12px 14px",background:"#F0FAF0",borderRadius:10,border:"1px solid #2A8040"}}>
+              <div style={{fontSize:13,fontWeight:700,color:"#1A6828",marginBottom:4}}>Coach API Key</div>
+              <div style={{fontSize:13,color:"#2A5030",lineHeight:1.5}}>Liegt in Netlify → Site Configuration → Environment Variables als ANTHROPIC_KEY</div>
+            </div>
+            <button onClick={()=>{localStorage.setItem(GK,gas.trim());onClose(true);}}
+              style={{width:"100%",padding:15,background:"linear-gradient(135deg,"+B+","+C+")",color:WH,borderRadius:12,fontSize:16,fontWeight:700}}>
+              Speichern &amp; neu laden
+            </button>
+            <button onClick={exportData}
+              style={{width:"100%",padding:12,background:WH,color:T2,borderRadius:12,fontSize:14,fontWeight:600,border:"1.5px solid "+BR,marginTop:10}}>
+              ↓ Backup exportieren (JSON)
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // ── NAV ────────────────────────────────────────────────────────────────
+    function Nav({tab,setTab}){
+      return(
+        <div style={{position:"fixed",bottom:16,left:"50%",transform:"translateX(-50%)",width:"calc(100% - 32px)",maxWidth:400,background:WH,borderRadius:28,padding:"7px 5px",display:"flex",justifyContent:"space-around",zIndex:50,boxShadow:"0 8px 28px "+B+"22,0 2px 6px rgba(0,0,0,.04)",border:"1px solid "+BR}}>
+          {[["log","Log"],["history","Verlauf"]].map(([id,l])=>(
+            <div key={id} onClick={()=>setTab(id)} style={{padding:"9px 14px",borderRadius:20,background:tab===id?B:"transparent",boxShadow:tab===id?"0 3px 10px "+B+"44":"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",transition:"all .15s"}}>
+              <span style={{fontFamily:DP,fontSize:12,fontWeight:700,color:tab===id?"#fff":T3,letterSpacing:.3}}>{l}</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    const Label=({children,mt=0})=>React.createElement("div",{style:{fontSize:11,color:T3,letterSpacing:1.5,marginBottom:10,marginTop:mt,fontWeight:700}},typeof children==="string"?children.toUpperCase():children);
+    const Lbl=({children})=>React.createElement("div",{style:{fontSize:11,color:T3,letterSpacing:1.2,marginBottom:6,fontWeight:700}},typeof children==="string"?children.toUpperCase():children);
+
+    ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+  </script>
+</body>
+</html>
